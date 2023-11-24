@@ -1,98 +1,42 @@
+import { unlink } from 'fs/promises'
+
 import { Request, Response } from 'express'
 
-import { Phrase } from '../models/Phrase'
+import sharp from 'sharp';
+
 import { constrainedMemory } from 'process';
 import { json } from 'sequelize';
 
-export const ping = (req: Request, res: Response) => {
-    res.json({ pong: true });
-}
-
-
-export const createPhrase = async (req: Request, res: Response) => {
-    let { author, txt } = req.body; 
-
-    try{
-        let newPhrase = await Phrase.create({ author, txt })
-        res.status(201)
-        res.json({ id: newPhrase.id, envio: 'Deu tudo certo!' });
-        return;
-    }catch(err){
-        res.status(500);
-        res.json({ error: 'Erro ao criar frase' });
+export const uploadFile = async (req: Request, res: Response) => {
+    if(!req.file){
+        res.status(400)
+        res.json({ error: 'Arquivo invalido'})
         return;
     }
+    const  filename = req.file.filename + '.jpg';
+    //biblioteca sharp para a manipulção de imagens
+    await sharp(req.file.path)
+        .resize(500, 500, {
+            fit: sharp.fit.cover,
+            position: 'center'
+        })
+        .toFormat('jpeg')
+        .toFile(`./public/media/${req.file.filename}.jpg`); 
+
     
+    await unlink(req.file.path);
+   
+    res.json({image : filename});
 }
 
-export const listPhrases = async (req: Request, res: Response) => {
-    try{
-        let phrases = await Phrase.findAll();
-        res.json({ phrases });
-        return;
-    }catch(err){
-        res.status(500);
-        res.json({ error: 'Erro ao buscar frases' });
-        return;
-    }
-}
-
-export const getPhrase = async (req: Request, res: Response) => {
-        let { id } = req.params;
-        let phrase;
-    
-        try{
-            phrase = await Phrase.findByPk(id);
-        }catch(err){
-            res.status(500);
-            res.json({ error: err });
-            return;
-        }
-
-        if(!phrase){
-            res.status(404);
-            res.json({ error: 'Frase não encontrada' });
-            return;
-        }
-
-        res.json({ phrase });
-}
-
-export const updatePhrase = async (req: Request, res: Response) => {
-    let { id } = req.params;
-    let {author, txt} = req.body;
-    console.log(req.body);
-    if(!author || !txt){
-        res.status(400);
-        res.json({ error: 'Parametros invalidos' });
-        return;
-    }
-    try{
-        let phrase1 = await Phrase.findByPk(id);
-        let phrase = await Phrase.update({ author, txt }, {
-            where: {
-                id
-            }
-        });
-        res.json({ phrase1 ,status: 'Sucesso' });
-       
-    }catch(err){
-        res.status(500);
-        res.json({ error: err });
-        return;
-    }
-}
-
-export const deletePhrase = async (req: Request, res: Response) => {
-    let {id} = req.params;
-
-    try{
-        await Phrase.destroy({ where: {id} })
-    }catch(err){
-        res.status(500);
-        res.json({ error: err });
-        return;
+/* Envio do field
+ type UploadTypes = {
+        avatar?: Express.Multer.File[],
+        banner?: Express.Multer.File[]
     }
 
-    res.json({deletado: true});
-}
+   Enviando mais um capo de arquivo e pegando os dois separadamente
+    const files = req.files as UploadTypes;
+    console.log(files.avatar)
+    console.log(files.banner)
+*/
